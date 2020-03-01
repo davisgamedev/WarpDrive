@@ -22,6 +22,8 @@ function createProgram(gl, vertexShader, fragmentShader) {
     if (!gl.getProgramParameter(program, gl.LINK_STATUS)) {
         throw(gl.getProgramInfoLog(program));
     }
+
+    gl.useProgram(program);
     return program;
 }
 
@@ -47,14 +49,6 @@ function attributeVerteces2D(gl, program, argName) {
     gl.enableVertexAttribArray(loc);    
     gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
 }
-
-function passCanvasResolution(gl, program, argName){
-    gl.uniform2f(
-        gl.getUniformLocation(program, argName), 
-        gl.canvas.width, 
-        gl.canvas.height);
-}
-
 
 function createTexture(gl, image) {
     // Create a texture.
@@ -86,10 +80,18 @@ function resize(gl, program, resUniformArg) {
         canvas.width  = displayWidth;
         canvas.height = displayHeight;
     }
+    //testasdsa
 
     gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
     passCanvasResolution(gl, program, resUniformArg);
 };
+
+function passCanvasResolution(gl, program, argName){
+    gl.uniform2f(
+        gl.getUniformLocation(program, argName), 
+        gl.canvas.width, 
+        gl.canvas.height);
+}
 
 function setData(gl, ...data) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...data]), gl.STATIC_DRAW);
@@ -106,7 +108,7 @@ function randomInt(range) {
   }
   
   // Fill the buffer with the values that define a rectangle.
-function setRectangle(gl, x, y, width, height) {
+function createRectangleData(gl, x, y, width, height) {
     var x1 = x;
     var x2 = x + width;
     var y1 = y;
