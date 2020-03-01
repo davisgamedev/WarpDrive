@@ -12,8 +12,9 @@ function createShader(gl, type, source) {
     gl.deleteShader(shader);
 }
 
-  // links shader into a 'program' package
-function createProgram(gl, vertexShader, fragmentShader) {
+function getProgram(gl, vertexShader, fragmentShader) {
+    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShader);
+    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader);
     var program = gl.createProgram();
     gl.attachShader(program, vertexShader);
     gl.attachShader(program, fragmentShader);
@@ -27,27 +28,53 @@ function createProgram(gl, vertexShader, fragmentShader) {
     return program;
 }
 
-function getProgram(gl, vertexShader, fragmentShader) {
-    var vertexShader = createShader(gl, gl.VERTEX_SHADER, vertexShader);
-    var fragmentShader = createShader(gl, gl.FRAGMENT_SHADER, fragmentShader);
-    return createProgram(gl, vertexShader, fragmentShader);
-}
-
 function makeBuffer(gl) {
     let buffer = gl.createBuffer();
     gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
     return buffer;
 }
 
-function createClear(gl, color) {
+function createClearFunction(gl, color) {
     gl.clearColor(color[0], color[1], color[2], color[3]);
-    return () => gl.clear(gl.COLOR_BUFFER_BIT);
+    const clear = () => gl.clear(gl.COLOR_BUFFER_BIT);
+    clear();
+    return clear 
 }
 
-function attributeVerteces2D(gl, program, argName) {
-    let loc = gl.getAttribLocation(program, argName);
-    gl.enableVertexAttribArray(loc);    
-    gl.vertexAttribPointer(loc, 2, gl.FLOAT, false, 0, 0);
+function createResizeFunction(gl, program, resUniformArg) {
+    
+    const resize = () => {
+        // Lookup the size the browser is displaying the canvas.
+        var displayWidth  = canvas.clientWidth;
+        var displayHeight = canvas.clientHeight;
+
+        // Check if the canvas is not the same size.
+        if (canvas.width  !== displayWidth ||
+            canvas.height !== displayHeight) {
+
+            // Make the canvas the same size
+            canvas.width  = displayWidth;
+            canvas.height = displayHeight;
+        }
+        //testasdsa
+
+        gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
+
+        gl.uniform2f(
+            gl.getUniformLocation(program, resUniformArg), 
+            gl.canvas.width, 
+            gl.canvas.height);
+    };
+    resize();
+    window.onresize = resize;
+    return resize;
+};
+
+function attributeVerteces2D(gl, program, locationString, buffer) {
+    const location = gl.getAttribLocation(program, locationString);
+    gl.bindBuffer(gl.ARRAY_BUFFER, buffer);
+    gl.enableVertexAttribArray(location);    
+    gl.vertexAttribPointer(location, 2, gl.FLOAT, false, 0, 0);
 }
 
 function createTexture(gl, image) {
@@ -66,32 +93,6 @@ function createTexture(gl, image) {
     return texture;
 }
 
-function resize(gl, program, resUniformArg) {
-            
-    // Lookup the size the browser is displaying the canvas.
-    var displayWidth  = canvas.clientWidth;
-    var displayHeight = canvas.clientHeight;
-
-    // Check if the canvas is not the same size.
-    if (canvas.width  !== displayWidth ||
-        canvas.height !== displayHeight) {
-
-        // Make the canvas the same size
-        canvas.width  = displayWidth;
-        canvas.height = displayHeight;
-    }
-    //testasdsa
-
-    gl.viewport(0, 0, gl.canvas.width, gl.canvas.height);
-    passCanvasResolution(gl, program, resUniformArg);
-};
-
-function passCanvasResolution(gl, program, argName){
-    gl.uniform2f(
-        gl.getUniformLocation(program, argName), 
-        gl.canvas.width, 
-        gl.canvas.height);
-}
 
 function setData(gl, ...data) {
     gl.bufferData(gl.ARRAY_BUFFER, new Float32Array([...data]), gl.STATIC_DRAW);
