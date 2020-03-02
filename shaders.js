@@ -1,5 +1,26 @@
 
-const vertexShader2d = `
+
+const vertexVaryingShader = `
+    attribute vec2 a_position;
+
+    uniform vec2 u_resolution;
+    uniform vec2 u_translation;
+    uniform vec2 u_rotation;
+
+    void main() {
+        // Rotate the position
+        vec2 rotatedPosition = vec2(
+            a_position.x * u_rotation.y + a_position.y * u_rotation.x,
+            a_position.y * u_rotation.y - a_position.x * u_rotation.x);
+
+        // Add in the translation.
+        vec2 position = rotatedPosition + u_translation;
+    }
+`;
+
+
+
+const vertexTextureShader2d = `
     attribute vec2 a_position;
     attribute vec2 a_texCoord;
 
@@ -26,7 +47,7 @@ const vertexShader2d = `
     }
 `;
 
-const fragmentShader2d = `
+const fragmentTextureShader2d = `
     precision mediump float;
 
     // our texture

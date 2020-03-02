@@ -57,6 +57,17 @@ function createSetData_1f_v(gl, prog, argName) {
     return (val) => gl.uniform1fv(argLoc, val);
 }
 
+function createSetData_2f(gl, prog, argName) {
+    let argLoc = uniLoc(gl, prog, argName);
+    return (...data) => gl.uniform2f(argLoc, ...data);
+}
+
+function createSetData_4f_v(gl, prog, argName) {
+    let argLoc = uniLoc(gl, prog, argName);
+    return (...data) => gl.uniform_4f_v(argLoc, ...data);
+}
+
+
 function createClearFunction(gl, color) {
     gl.clearColor(color[0], color[1], color[2], color[3]);
     const clear = () => gl.clear(gl.COLOR_BUFFER_BIT);
@@ -124,8 +135,11 @@ function createNewTexture(gl) {
     gl.bindTexture(gl.TEXTURE_2D, texture);
 
     // Set the parameters so we can render any size image.
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
-    gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.CLAMP_TO_EDGE);
+     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.CLAMP_TO_EDGE);
+    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_S, gl.REPEAT);
+    //gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_WRAP_T, gl.REPEAT);
+
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MIN_FILTER, gl.NEAREST);
     gl.texParameteri(gl.TEXTURE_2D, gl.TEXTURE_MAG_FILTER, gl.NEAREST);
 
@@ -166,121 +180,6 @@ function createRectangleData(gl, x, y, width, height) {
         x2, y2,);
 }
 
-// kernel logic
-function computeKernelWeight(kernel) {
-    var weight = kernel.reduce(function(prev, curr) {
-        return prev + curr;
-    });
-    return weight <= 0 ? 1 : weight;
-}
+function drawScene() {
 
-function drawWithKernel(gl, prog, kernel=kernels.normal) {
-    gl.uniform1fv(
-        uniLoc(gl, prog, "u_kernel[0]"),
-        kernel
-    );
-    draw(gl, 6);
-}
-
-const kernels = {
-    normal: [
-        0, 0, 0,
-        0, 1, 0,
-        0, 0, 0
-      ],
-      gaussianBlur: [
-        0.045, 0.122, 0.045,
-        0.122, 0.332, 0.122,
-        0.045, 0.122, 0.045
-      ],
-      gaussianBlur2: [
-        1, 2, 1,
-        2, 4, 2,
-        1, 2, 1
-      ],
-      gaussianBlur3: [
-        0, 1, 0,
-        1, 1, 1,
-        0, 1, 0
-      ],
-      unsharpen: [
-        -1, -1, -1,
-        -1,  9, -1,
-        -1, -1, -1
-      ],
-      sharpness: [
-         0,-1, 0,
-        -1, 5,-1,
-         0,-1, 0
-      ],
-      sharpen: [
-         -1, -1, -1,
-         -1, 16, -1,
-         -1, -1, -1
-      ],
-      edgeDetect: [
-         -0.125, -0.125, -0.125,
-         -0.125,  1,     -0.125,
-         -0.125, -0.125, -0.125
-      ],
-      edgeDetect2: [
-         -1, -1, -1,
-         -1,  8, -1,
-         -1, -1, -1
-      ],
-      edgeDetect3: [
-         -5, 0, 0,
-          0, 0, 0,
-          0, 0, 5
-      ],
-      edgeDetect4: [
-         -1, -1, -1,
-          0,  0,  0,
-          1,  1,  1
-      ],
-      edgeDetect5: [
-         -1, -1, -1,
-          2,  2,  2,
-         -1, -1, -1
-      ],
-      edgeDetect6: [
-         -5, -5, -5,
-         -5, 39, -5,
-         -5, -5, -5
-      ],
-      sobelHorizontal: [
-          1,  2,  1,
-          0,  0,  0,
-         -1, -2, -1
-      ],
-      sobelVertical: [
-          1,  0, -1,
-          2,  0, -2,
-          1,  0, -1
-      ],
-      previtHorizontal: [
-          1,  1,  1,
-          0,  0,  0,
-         -1, -1, -1
-      ],
-      previtVertical: [
-          1,  0, -1,
-          1,  0, -1,
-          1,  0, -1
-      ],
-      boxBlur: [
-          0.111, 0.111, 0.111,
-          0.111, 0.111, 0.111,
-          0.111, 0.111, 0.111
-      ],
-      triangleBlur: [
-          0.0625, 0.125, 0.0625,
-          0.125,  0.25,  0.125,
-          0.0625, 0.125, 0.0625
-      ],
-      emboss: [
-         -2, -1,  0,
-         -1,  1,  1,
-          0,  1,  2
-      ]
 }
