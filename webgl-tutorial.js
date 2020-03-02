@@ -88,12 +88,11 @@ function render(image) {
     attributeVerteces2D(gl, prog, "a_position", positionBuffer);
     attributeVerteces2D(gl, prog, "a_texCoord", texcoordBuffer);
 
-    let flipY = uniLoc(gl, prog, "u_flipY");
-
     let resLoc = uniLoc(gl, prog, "u_resolution");
+    
+    let setKernelWeight = createSetData_1f(gl, prog, "u_kernelWeight");
+    let setKernel = createSetData_1f_v(gl, prog, "u_kernel[0]");
 
-    let kernelLoc = uniLoc(gl, prog, "u_kernel[0]");
-    let kernelWeightLoc = uniLoc(gl, prog, "u_kernelWeight");
 
     gl.uniform2f(uniLoc(gl, prog, "u_textureSize"), image.width, image.height);
 
@@ -103,8 +102,8 @@ function render(image) {
 
     // don't y flip images while drawing to the textures
     //gl.uniform1f(flipY, 1);
-    let flip = createSetData1f(gl, prog, "u_flipY");
-    flip(1);
+    let flipY = createSetData_1f(gl, prog, "u_flipY");
+    flipY(1);
 
     // loop through each effect we want to apply.
     for (var i = 0; i < effects.length; ++i) {
@@ -113,12 +112,11 @@ function render(image) {
 
         drawWithKernel(effects[i]);
 
-        // for the next draw, use the texture we just rendered to.
-        gl.bindTexture(gl.TEXTURE_2D, textures[i % 2]);
+        drawTexture(gl, textures[i % 2]);
     }
 
     // finally draw the result to the canvas.
-    gl.uniform1f(flipY, -1);  // need to y flip for canvas
+    flipY(-1);  // need to y flip for canvas
     setFramebuffer(null, canvas.width, canvas.height);
     drawWithKernel(kernels.normal);
 
@@ -126,7 +124,6 @@ function render(image) {
     // make this the framebuffer we are rendering to.
     gl.bindFramebuffer(gl.FRAMEBUFFER, fbo);
 
-    // Tell the shader the resolution of the framebuffer.
     gl.uniform2f(resLoc, width, height);
 
     // Tell webgl the viewport setting needed for framebuffer.
@@ -134,23 +131,9 @@ function render(image) {
     }
 
     function drawWithKernel(kernel) {
-    // set the kernel
-    gl.uniform1fv(kernelLoc, kernel);
-    gl.uniform1f(kernelWeightLoc, computeKernelWeight(kernel));
+        setKernel(kernel);
+        setKernelWeight(computeKernelWeight(kernel));
 
-
-    // Draw the rectangle.
-    gl.drawArrays(gl.TRIANGLES, 0, 6);
+        draw(gl, 6);
     }
-    // let activeKernel = kernels.edgeDetect2;
-
-    // // // kernel
-    // drawWithKernel(gl, prog, kernel);
-
-    // gl.uniform1f(
-    //     uniLoc(gl, prog, "u_kernelWeight"),
-    //     computeKernelWeight(activeKernel)
-    // );
-    
-    // draw(gl, 6);
 }

@@ -47,9 +47,14 @@ function uniLoc(gl, program, argString){
     return  gl.getUniformLocation(program, argString);
 }
 
-function createSetData1f(gl, prog, argName) {
-    argLoc = uniLoc(gl, prog, argName);
+function createSetData_1f(gl, prog, argName) {
+    let argLoc = uniLoc(gl, prog, argName);
     return (val) => gl.uniform1f(argLoc, val);
+}
+
+function createSetData_1f_v(gl, prog, argName) {
+    let argLoc = uniLoc(gl, prog, argName);
+    return (val) => gl.uniform1fv(argLoc, val);
 }
 
 function createClearFunction(gl, color) {
