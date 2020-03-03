@@ -166,6 +166,32 @@ function randomInt(range) {
   }
   
   // Fill the buffer with the values that define a rectangle.
+/****************
+ *  FOR WEBGL SKETCH WE NEED A VECTORGET FUNCTION
+ * 
+ *      WHERE
+ * 
+ *  indexRandomSeeds = [
+ *      (index for coord) = Math.random()* 
+ * ];
+ * 
+ * SEND THE SEED WITH EACH 2d COORD TO VERTEX
+ *  THAT SEED WILL BE USED TO DETERMINE THE NEXT RANDOM COORDINATE
+ *      THAT COORDINATE CAN BE USED IN CONJUNCTION WITH FRAMECOUNTTO
+ *          __PSUEDO__ INCREMENT!!!!!!!!!!!!!!!!!!!!!!!!!!!
+ *  PSUEDO INCREMENTATION OH MY GOD I GET IT NOW
+ * 
+ *  let (x, y) = getVector2d(x, y, index)
+ * 
+ * 
+ * 
+ * 
+ */
+
+
+
+
+
 function createRectangleData(gl, x, y, width, height) {
     var x1 = x;
     var x2 = x + width;
