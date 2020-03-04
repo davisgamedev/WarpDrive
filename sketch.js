@@ -139,6 +139,7 @@ function main() {
 
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            // TODO: FORGOT TO CHANGE BACK TO BACKGROUND COLOR, LINE GROWTH NEEDS AN UPDATE
             ctx.fillStyle = "rgba(27, 2, 27, 0.8)";
             ctx.ellipse(center.x, center.y, 50, 50, 0, 0, Math.PI * 2);
             ctx.fill();
