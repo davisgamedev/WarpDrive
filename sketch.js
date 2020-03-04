@@ -9,13 +9,26 @@ function getRandomHSB(h){
 }
 
 const numLasers = 200;
+const numLaserPrebuilds = 5;
+
+let elapsedTime = 0.0;
+
+window.laserLifetimes = [];
+
+window.addLifeTime = function(lifetime) {
+    //window.laserLifetimes.push(lifetime);
+}
+
 let lasers = [];
+
+let goal = 1000;
 
 function main() {
     const canvas = document.querySelector("#canvas");
     const ctx = canvas.getContext("2d");
 
     const subLasers = 10;
+
 
     function laser() {
 
@@ -29,6 +42,8 @@ function main() {
         this.width;
         this.alpha;
 
+        this.localTime;
+
         this.create = function(){
             this.reCreate();
             this.from += randomTo(canvas.width);
@@ -36,18 +51,24 @@ function main() {
         }
 
         this.reCreate = function() {
-            this.from =     randomRange(0, 200);
+            this.localTime = 0.0;
+
+            this.from =     randomRange(50, 300);
+            if(Math.random() < 0.4) this.from = randomRange(10, 100);
+
             this.dirs = this.dirs.map(x => randomRange(0, Math.PI*2));
 
             this.length =   randomRange(0, 10);
 
-            this.speed =    randomRange(10, 20);
+            this.speed =    randomRange(10, 100);
             this.accel =    randomRange(15, 300);
-            this.growth =   0;//randomRange(0, 5);
+            this.growth =   randomRange(0, 2);
 
             this.color = getRandomHSB(randomRange(200, 280));
             this.width = randomRange(0.5, 5);
-            this.alpha = randomRange(0.1, 0.8);
+            this.alpha = 0;
+            this.alphaSpeed = randomRange(10, 100);
+            this.alphaMax = randomRange(0.1, 0.8);
         }
 
         this.draw = function(){
@@ -74,11 +95,17 @@ function main() {
         }
         
         this.update = function(dt) {
-            if(this.from > canvas.width) this.reCreate();
+            if(this.from > canvas.width && this.localTime > 0) {
+                window.addLifeTime(this.localTime);
+                this.reCreate();
+            }
+            this.localTime += dt; 
+            this.accel += Math.random() * 100 * dt;
             this.speed += this.accel * dt;
             this.growth += this.accel * dt;
             this.from += (this.speed * dt) + (this.growth*dt);
             this.length += this.growth * dt;
+            if(this.alpha < this.alphaMax) this.alpha += this.alphaSpeed * dt;
         }
     }
 
@@ -102,6 +129,8 @@ function main() {
             delta = (curr - prev)/1000;
             prev = curr;
 
+            elapsedTime += delta;
+
             //ctx.clearRect(0, 0, canvas.width, canvas.height);
             ctx.fillStyle = "rgba(25, 0, 25, 0.2)";
             ctx.fillRect(0, 0, canvas.width, canvas.height);
@@ -111,11 +140,41 @@ function main() {
                 l.update(delta);
             })
 
-            let first = lasers[0];
+            //let first = lasers[0];
             //console.log(`first x: ${first.from}, first length: ${first.length}`)
             //console.log(first.speed);
 
             requestAnimationFrame(draw);
+
+            if(laserLifetimes.length > goal) {
+                goal += 1000;
+
+                console.log(laserLifetimes);
+
+                let size = laserLifetimes.length;
+                let avgLifetime = laserLifetimes.reduce((total, num) => total + num/size);
+                
+                let smallest = 100000;
+                let largest = 0;
+
+                laserLifetimes.forEach(l => {
+                    if(l > largest) largest = l;
+                    if(l < smallest) smallest = l;
+                });
+
+
+                console.log(`${size} lifetimes recorded
+                    average was ${avgLifetime},
+                    longest was ${largest},
+                    shortest was ${smallest},
+                    overall span was ${largest-smallest}
+                `);
+
+                if(laserLifetimes.length > 100000) {
+                    goal = 1000;
+                    laserLifetimes = [];
+                }
+            }
         }
     })();
 }
