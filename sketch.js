@@ -8,27 +8,26 @@ function getRandomHSB(h){
     return 'hsl(' + h + ',' + s + '%,' + b + '%)';
 }
 
-const numLasers = 200;
-const numLaserPrebuilds = 5;
-
-let elapsedTime = 0.0;
-
 window.laserLifetimes = [];
-
 window.addLifeTime = function(lifetime) {
     //window.laserLifetimes.push(lifetime);
 }
 
 let lasers = [];
-
 let goal = 1000;
 
 function main() {
+
     const canvas = document.querySelector("#canvas");
     const ctx = canvas.getContext("2d");
 
-    const subLasers = 10;
+    const offset = {x: 0, y: 0};
+    const center = {x: canvas.width/2 + offset.x, y: canvas.height/2 + offset.y };
+    
+    const numLasers = 600;
+    const subLasers = 5;
 
+    let elapsedTime = 0.0;
 
     function laser() {
 
@@ -60,16 +59,15 @@ function main() {
 
             this.length =   randomRange(0, 10);
 
-            this.speed =    randomRange(10, 50);
-            this.accel =    randomRange(15, 300);
+            this.speed =    randomRange(50, 100);
+            this.accel =    randomRange(15, 250);
             this.growth =   0;//randomRange(0, 2);
 
             this.color = getRandomHSB(randomRange(200, 280));
-            this.width = randomRange(0.5, 5);
-            if(this.width > 4.5) this.width = 2;
+            this.width = randomRange(0.5, 4);
             this.alpha = 0;
-            this.alphaSpeed = randomRange(0.1, 2);
-            this.alphaMax = randomRange(0.2, 0.6);
+            this.alphaSpeed = randomRange(0.05, 2);
+            this.alphaMax = randomRange(0.5, 0.8);
         }
 
 
@@ -78,7 +76,7 @@ function main() {
         this.draw = function(){
             ctx.save();
 
-            ctx.translate(canvas.width/2, canvas.height/2);
+            ctx.translate(center.x, center.y);
 
             this.dirs.forEach((d, i) => {
                 ctx.rotate(d)
@@ -142,7 +140,7 @@ function main() {
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
             ctx.fillStyle = "rgba(27, 2, 27, 0.8)";
-            ctx.ellipse(canvas.width/2, canvas.height/2, 50, 50, 0, 0, Math.PI * 2);
+            ctx.ellipse(center.x, center.y, 50, 50, 0, 0, Math.PI * 2);
             ctx.fill();
             
             lasers.forEach(l => {
