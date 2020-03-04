@@ -21,13 +21,50 @@ function main() {
     const canvas = document.querySelector("#canvas");
     const ctx = canvas.getContext("2d");
 
+    var video = document.querySelector("#videoRecord");
+    var videoStream = canvas.captureStream(60);
+
+    const options = {
+        //3,000,000,000
+        videoBitsPerSecond: 15000000,
+        mimeType: 'video/webm;codecs=h264,vp9',
+        //type: 'video/webm;codecs=h264,vp9,opus',
+        minWidth: canvas.width,
+        minHeight: canvas.height,
+    }
+
+    var mediaRecorder = new MediaRecorder(videoStream, options);
+    var chunks = [];
+
+    mediaRecorder.ondataavailable = function(e) {
+        chunks.push(e.data);
+    };
+
+    mediaRecorder.onstop = function(e) {
+    var blob = new Blob(chunks, options);
+        chunks = [];
+        var videoURL = URL.createObjectURL(blob);
+        video.src = videoURL;
+    };
+
+    // mediaRecorder.setVideoSize(640, 480);
+    // mediaRecorder.setVideoFrameRate(60); //might be auto-determined due to lighting
+    // mediaRecorder.setVideoEncodingBitRate(3000000);
+    // mediaRecorder.setVideoEncoder(MediaRecorder.VideoEncoder.H264);// MPEG_4_SP
+    // mediaRecorder.setAudioEncoder(MediaRecorder.AudioEncoder.AMR_NB);
+
+    let elapsedTime = 0.0;
+    let recordTimeStart = 0.0;
+    let recordTimeEnd = 5.0;
+    let recording = false;
+    let recordingDone = false;
+
     const offset = {x: 0, y: 0};
     const center = {x: canvas.width/2 + offset.x, y: canvas.height/2 + offset.y };
     
-    const numLasers = 600;
-    const subLasers = 5;
+    const numLasers = 300;
+    const subLasers = 10;
 
-    let elapsedTime = 0.0;
 
     function laser() {
 
@@ -134,6 +171,19 @@ function main() {
             prev = curr;
 
             elapsedTime += delta;
+            if(!recordingDone) {
+                if(recording && elapsedTime > recordTimeEnd) {
+                    console.log("recording done!");
+                    mediaRecorder.stop();
+                    recordingDone = true;
+                    recording = false;
+                }
+                else if(!recording && elapsedTime > recordTimeStart) {
+                    console.log("recording started!");
+                    mediaRecorder.start();
+                    recording = true;
+                }
+            }
 
             //ctx.clearRect(0, 0, canvas.width, canvas.height);
 
