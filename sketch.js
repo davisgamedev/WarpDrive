@@ -53,23 +53,27 @@ function main() {
         this.reCreate = function() {
             this.localTime = 0.0;
 
-            this.from =     randomRange(50, 300);
-            if(Math.random() < 0.4) this.from = randomRange(0, 100);
+            this.from =     randomRange(50, 200);
+            if(Math.random() < 0.1) this.from = randomRange(0, 50);
 
             this.dirs = this.dirs.map(x => randomRange(0, Math.PI*2));
 
             this.length =   randomRange(0, 10);
 
-            this.speed =    randomRange(10, 100);
+            this.speed =    randomRange(10, 50);
             this.accel =    randomRange(15, 300);
             this.growth =   0;//randomRange(0, 2);
 
             this.color = getRandomHSB(randomRange(200, 280));
             this.width = randomRange(0.5, 5);
+            if(this.width > 4.5) this.width = 2;
             this.alpha = 0;
             this.alphaSpeed = randomRange(0.1, 2);
             this.alphaMax = randomRange(0.2, 0.6);
         }
+
+
+        ctx.lineCap = "round";
 
         this.draw = function(){
             ctx.save();
@@ -134,9 +138,13 @@ function main() {
             elapsedTime += delta;
 
             //ctx.clearRect(0, 0, canvas.width, canvas.height);
-            ctx.fillStyle = "rgba(25, 0, 25, 0.2)";
+
             ctx.fillRect(0, 0, canvas.width, canvas.height);
 
+            ctx.fillStyle = "rgba(27, 2, 27, 0.8)";
+            ctx.ellipse(canvas.width/2, canvas.height/2, 50, 50, 0, 0, Math.PI * 2);
+            ctx.fill();
+            
             lasers.forEach(l => {
                 l.draw();
                 l.update(delta);
