@@ -54,7 +54,7 @@ function main() {
             this.localTime = 0.0;
 
             this.from =     randomRange(50, 300);
-            if(Math.random() < 0.4) this.from = randomRange(10, 100);
+            if(Math.random() < 0.4) this.from = randomRange(0, 100);
 
             this.dirs = this.dirs.map(x => randomRange(0, Math.PI*2));
 
@@ -62,13 +62,13 @@ function main() {
 
             this.speed =    randomRange(10, 100);
             this.accel =    randomRange(15, 300);
-            this.growth =   randomRange(0, 2);
+            this.growth =   0;//randomRange(0, 2);
 
             this.color = getRandomHSB(randomRange(200, 280));
             this.width = randomRange(0.5, 5);
             this.alpha = 0;
-            this.alphaSpeed = randomRange(10, 100);
-            this.alphaMax = randomRange(0.1, 0.8);
+            this.alphaSpeed = randomRange(0.1, 2);
+            this.alphaMax = randomRange(0.2, 0.6);
         }
 
         this.draw = function(){
@@ -105,7 +105,9 @@ function main() {
             this.growth += this.accel * dt;
             this.from += (this.speed * dt) + (this.growth*dt);
             this.length += this.growth * dt;
-            if(this.alpha < this.alphaMax) this.alpha += this.alphaSpeed * dt;
+            if(this.alpha < this.alphaMax) {
+                this.alpha += this.alphaSpeed * dt;
+            }
         }
     }
 
