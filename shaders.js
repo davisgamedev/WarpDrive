@@ -1,193 +1,191 @@
 /*
     basic pipeline:
-    update => write => draw
-
-
-    /// caculates data from previous state, and puts to middle buffer
-    updateDataProgram 
-        in: dataTexture (old data)
-        out: middleDataBuffer (new data)
-
-        
-    /// passes new calculated data from middle texture back to data texture
-    /// bit redundant, but has simplicity and purpose
-    ///    a lot like myself, this is me, i am this program 
-    writeDataProgram 
-        in: middleDataBuffer (new data)
-        out: dataTexture
-
-    drawDataProgram
-        in: dataTexture (current data)
-        out: pretty pictures :D
+    updatePrograms(vert, currentCalcfrag) x numCalculations  => draw
 */
 
-const updateDataVertShader = `
+// NOTES:
+/*
+    vertShader
 
-    // position(x, y, index_x, index_y)
-    // x, y will change for each vert, ix, iy won't
-    attribute vec4 a_position;
+    vec2 currentCalculation (0-numData, 1);
+    vec2 dataSize (numData, 0)
+    
+    vec2 offSet (0, 0);
+    vec2 dataScale (w, h) 
+        size of data blocks (pixels)
+        1, 1, for efficiency
 
-    // NO BECAUSE INDEX COULD BE ZERO
-    // random x, random y, salt x (0-100), salt y(0-100)
-    // accesses a random coordinate * framerate + salt + vertex
-    //  unique coord each frame and vertex
-    // add salt to prevent any accidental prime-number skips
-    // overkill, but i'd love to never have to use another randomTexture
-    attribute vec4 a_randomSeed;
+    vec4 a_position(x, y, index_x, index_y):
+        x and y will always be 0-1
+        index_x, index_y will be the start of the current cell
+
+    vec2 position
+        will be calcualted as:
+        (0-1, 0-1) + index + offset + currentCalc, adjusted to dataScale
+            (a_position.xy + a_position.zw 
+                + offSet + currentCalculation) * dataScale;
+        output to gl_Position in clipspace
+
+    attribute vec4 a_randomSeed 
+        (random x, random y, salt x (0-100), salt y(0-100))
+            accesses a random coordinate * framerate + salt + vertex
+            unique coord each frame + calculation
+            add salt to prevent any accidental skips (overkill lol)
+
+    varying vec2 v_randomFetchCoord;
+        calculated as:
+            vec2 frameIndex = (0.0, floor(frameCount/randomresolution.x));
+            frameIndex.x = frameCount - (frameIndex.y * randomResolution.y);
+            vec2 initRandomPosition = randomSeed.xy * randomResolution + randomSeed.zw;
+            v_randomFetchCoord = clipSpace(initPosition + frameIndex);
+                
+*/
+
+const dataVert = `
+
+    uniform vec2 currentCalculation;
+    uniform vec2 offSet;
+    uniform vec2 dataScale;
 
     uniform vec2 dataResolution;
-    varying vec4 v_totalPosition;
-
-    attribute vec2 a_randomCoord;
     uniform vec2 randomResolution;
-    varying vec2 v_randomFetchCoord;
 
     // used to flip y on canvas draw vs buffer draw
     uniform float invertY;
-    
-    // number of data 'cells' (colors) we are writing to the x++ position
-    // just x for simplicity in frag shader, but could be expanded
-    uniform float dataSizeX;
 
-    uniform float frameCount;
-    uniform float delta;
+    attribute vec4 a_position;
+    attribute vec4 a_randomSeed;
 
+    varying vec2 v_randomFetchCoord;
 
-    vec2 clipSpace2(vec2 pixelSpace, vec2 resolution) {
+    varying vec2 v_resetCoord;
+    varying vec2 v_accelSpeedCoord;
+    varying vec2 v_growthAlphaCoord;
+    varying vec2 v_positionCoord;
+    varying vec2 v_rotationWidthCoord;
+    varying vec2 v_colorCoord;
+
+    vec2 clipSpace(vec2 pixelSpace, vec2 resolution) {
         return ((pixelSpace/resolution) * 2.0) - 1.0;
     }
-
-    vec4 clipSpace4(vec4 pixelSpace, vec4 resolution) {
-        return ((pixelSpace/resolution) * 2.0) - 1.0;
-    }
-
 
     void main() {
 
+        // set data locations
 
+        vec2 dataStep = clipSpace(dataScale.x, 0);
 
-        // init position: randomxy + salt + index;
-        vec2 randomCoord = vec2(a_randomSeed.xy * randomresolution)'
-        randomCoord += a_randomSeed.zw + position.zw;
-
-        // increment based on frameRate
-        randomCoord += vec2(
-                        mod(frameRate, randomResolution.x)
-                        floor(frameRate / randomResolution.y));
-
+        // colors 0-5
+        v_initCoord = clipSpace(a_position.xy + a_position.zw 
+            + offSet) * dataScale);
         
+        v_resetCoord =                 v_initCoord + (dataStep * 0.0)
+        v_accelSpeedCoord =            v_initCoord + (dataStep * 1.0);
+        v_growthAlphaCoord =           v_initCoord + (dataStep * 2.0);
+        v_positionCoord =              v_initCoord + (dataStep * 3.0);
+        v_rotationWidthCoord =         v_initCoord + (dataStep * 4.0);
+        v_colorCoord =                 v_initCoord + (dataStep * 5.0);
 
-        v_totalPosition.xy = a_position.zw + (a_position.xy - a_position.zw);
-        v_totalPosition.zw = v_totalPosition.xy + vec2(dataSizeX, 1.0);
-        v_totalPosition = clipSpace4(v_totalPosition, dataResolution.xyxy);
+        // set random location
+        vec2 frameIndex = (0.0, floor(frameCount/randomresolution.x));
+        frameIndex.x = frameCount - (frameIndex.y * randomResolution.y);
+        vec2 initRandomPosition = randomSeed.xy * randomResolution + randomSeed.zw;
+        v_randomFetchCoord = clipSpace(initPosition + frameIndex, randomResolution);
 
-        
-        vec2 pos = clipSpace4(a_position, dataResolution.xyxy);
-
-        v_randomFetchCoord = clipSpace2(v_randomFetchCoord);
-
-        gl_Position = vec4(pos.x, pos.y * invertY, pos.z, pos.w);
+        // set vertex location
+        v_positionPS = (a_position.xy + a_position.zw 
+            + offSet + currentCalculation) * dataScale;
+        gl_Position = clipSpace(v_positionPS, dataResolution);
 
     }
 `;
 
-const updateDataFragShader = `
+// checks for resets by calculation position and updates
+const dataFrag_resetCalc = `
+    
+    ${commonFrag_vars}
+    ${commonFrag_functions}
 
-    #define PI 3.1415926538;
+    void main() {
+        // hard coded positions we know, so, this might mess up if we change things
+        // basically the next data location is positionPS + dataScale
 
-    uniform vec2 canvasResolution;
+        vec4 position = getDataColor(v_positionCoord);
+        
+        float posx = derf2(position.xy);
 
-    uniform int frameCount;
-    uniform float delta;
+        //if posx > canvasWidth we need to reset
+        // pos/width, 0 if <, 1 if >
 
-    uniform vec2 randomInitPosXRange;
-    uniform vec4 randomDirectionRange;
-
-    uniform vec4 randomLengthWidthRange;
-    uniform vec4 randomAccelSpeedRange;
-    uniform vec4 randomHueLightnessRange;
-
-    uniform sampler2D randomTexture;
-    uniform sampler2D dataTexture;
-
-    // in, both scaled to clip space
-    varying vec2 v_randomFetchCoord;
-    varying vec4 v_totalPosition;
-
-    uniform float dataSizeX; // step = size/res.x
-    uniform vec2 dataResolution;
+        gl_FragColor = floor(posx/canvasResolution.x);
+    }
+`;
 
 
-    // colors (data) (1-4):
-    //   color1 out: update: (accel(r*g), speed, growth)
-    //   color2 out: position
-    //   color3 out: rotation
-    //   color4 out: color
 
+const dataFrag_speedCalc = `
+    
+    ${commonFrag_vars}
+    ${commonFrag_functions}
 
-    vec4 colorAlgorithm(float i) {
+    void main() {
+        
         /*
-            Sadly, we have to branch. But this shouldn't be too bad
-                Each call branch is called exactly once per cell per unit
-                So performance should still be parallel overall if compiler
-                does static branching. If not, it shouldn't be too overwhelming
-                a performance drop since this is only called 4 times per object
-            However, we could do multiple passes for each calculation on 
-                different frag shaders in the future to _ensure_ this is the case
+            * color1: update (accel(r*g), speed(b*a))
+
+            * sketch logic:
+            *   this.speed += this.accel * dt;
+            *   this.growth += this.accel * dt;
         */
 
-        // update and position are called first
-
-        vec4 update_Color1 = texture2D(dataTexture, v_totalPosition.x, v_totalPosition.y);
-        vec4 position_Color2 = texture2D(dataTexture, v_totalPosition.x, v_totalPosition.y);
+        vec4 accelSpeed = getDataColor(v_accelSpeedCoord);
+        vec4 randomVals = getRandomVals();
         
-        vec2 position = position_Color2.xz * position_Color2.yw * canvasResolution;
-        int reset = int(position.x > canvasResolution.x || position.y > canvasResolution.y);
-        
-        vec4 randomSet = texture2D(randomTexture, v_randomFetchCoord.x, v_randomFetchCoord.y);
-    
-        if(i < 1) { // update color
+        float accel = derf2(update.xy);
+        float speed = derf2(update.zw);
 
-            // update: (accel(r*g), speed, growth)
+        float resetAccel = derf2(randomAccel.xy) + (randomVals.x  * derf2(randomAccel.zw));
+        float resetSpeed = derf2(randomSpeed.xy) + (randomVals.x  * derf2(randomSpeed.zw));
 
-            vec4 updatedColor1 = vec4(
-                update_Color1.x, update_Color1.y,
-                update_Color1.z + (update_Color1.x * update_Color1.y * delta),
-                update_Color1.w + (update_Color1.x * update_Color1.y * delta),
-            );
+        vec4 updateColor = vec4(accelSpeed.xy, serf2(speed + (accel * delta)));
+        vec4 resetColor = vec4(serf2(resetAccel), serf2(resetSpeed));
 
-            float resetAccel = randomSet.x * randomAccelSpeedRange.x + randomAccelSpeedRange.y;
-            
-            vec4 resetColor1 = vec4(
-               mod(resetAccel, 255.0)/255.0
-               mod(resetAccel, )
-
-            )
-
-            gl_fragColor = color1;
-
-        }
-        else if (i < 2) { // position color
-
-        }
-        else if (i < 3) { // rotation color
-
-        }
-        else if (i <= 4.0) { // hsl color
-
-       }
+        writeColor(updateColor, resetColor);
     }
+`;
 
-    // take in previous data, make changes, and pass the color
+const dataFrag_growthAlphaCalc = `
+
+    ${commonFrag_vars}
+    ${commonFrag_functions}
+
     void main() {
 
-        float step = dataSizeX/resolution.x;
-        colorNum = gl_FragCoord.x/step;
-
+        /*
+        * color2: growthAlpha (growth(r*g) alphaSpeed, alphaMax);
+        *
+        * this.growth += this.accel * dt;
+        * if(this.alpha < this.alphaMax) this.alpha += this.alphaSpeed * dt;
+        */
         
+        vec4 growthAlphaColor = getDataColor(v_growthAlphaCoord);
 
-        gl_FragColor
+        vec4 randomVals = getRandomVals();
+
+        float growth = derf2(growthAlphaColor.xy) + (derf2(accelSpeedColor.xy) * delta);
+
+        /*
+        * Alpha will need to be updated in colorCalc
+        */
+
+        vec4 updateColor = vec4(serf2(growth).xy, growAlphaColor.zw);
+        vec4 resetColor = vec4(
+                serf2(
+                    randomGrowthWidth.x + (randomVals.x * randomGrowthWidth.y)
+                ).xy,
+                serf(randomAlphaSpeed.x + (randomVals.))
+        );
+
+        writeColor(updateColor, resetColor);
     }
-
-
 `;
