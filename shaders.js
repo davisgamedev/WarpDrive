@@ -10,7 +10,7 @@
     vec2 currentCalculation (0-numData, 1);
     vec2 dataSize (numData, 0)
     
-    vec2 offSet (0, 0);
+    vec2 dataOffset (0, 0);
     vec2 dataScale (w, h) 
         size of data blocks (pixels)
         1, 1, for efficiency
@@ -21,9 +21,9 @@
 
     vec2 position
         will be calcualted as:
-        (0-1, 0-1) + index + offset + currentCalc, adjusted to dataScale
+        (0-1, 0-1) + index + dataOffset + currentCalc, adjusted to dataScale
             (a_position.xy + a_position.zw 
-                + offSet + currentCalculation) * dataScale;
+                + dataOffset + currentCalculation) * dataScale;
         output to gl_Position in clipspace
 
     attribute vec4 a_randomSeed 
@@ -41,10 +41,43 @@
                 
 */
 
+const vertex2D = `
+    attribute vec2 a_position;
+    attribute vec2 a_texCoord;
+    varying vec2 v_texCoord;
+
+    uniform vec2 u_resolution;
+    uniform float u_flipY;
+
+    vec2 clipSpace(vec2 pixelSpace, vec2 resolution) {
+        return ((pixelSpace/resolution) * 2.0) - 1.0;
+    }
+
+    void main() {
+        vec2 clipPos = clipSpace(a_position, u_resolution);
+        gl_position = vec4(clipPos.x, clipPos * u_flipY, 0, 1);
+        v_texCoord = a_texCoord;
+    }
+`;
+
+const frag2D = `
+    precision mediump float;
+
+    // our texture
+    uniform sampler2D u_image;
+    
+    // the texCoords passed in from the vertex shader.
+    varying vec2 v_texCoord;
+    
+    void main() {
+        gl_FragColor = texture2D(u_image, v_texCoord);
+    }
+`;
+
 const dataVert = `
 
     uniform vec2 currentCalculation;
-    uniform vec2 offSet;
+    uniform vec2 dataOffset;
     uniform vec2 dataScale;
 
     uniform vec2 dataResolution;
@@ -77,7 +110,7 @@ const dataVert = `
 
         // colors 0-5
         v_initCoord = clipSpace(a_position.xy + a_position.zw 
-            + offSet) * dataScale);
+            + dataOffset) * dataScale);
         
         v_resetCoord =                 v_initCoord + (dataStep * 0.0)
         v_accelSpeedCoord =            v_initCoord + (dataStep * 1.0);
@@ -94,7 +127,7 @@ const dataVert = `
 
         // set vertex location
         v_positionPS = (a_position.xy + a_position.zw 
-            + offSet + currentCalculation) * dataScale;
+            + dataOffset + currentCalculation) * dataScale;
         gl_Position = clipSpace(v_positionPS, dataResolution);
 
     }
@@ -123,7 +156,7 @@ const dataFrag_resetCalc = `
 
 
 
-const dataFrag_speedCalc = `
+const dataFrag_accelSpeedCalc = `
     
     ${commonFrag_vars}
     ${commonFrag_functions}
@@ -143,12 +176,11 @@ const dataFrag_speedCalc = `
         
         float accel = derf2(update.xy);
         float speed = derf2(update.zw);
-
-        float resetAccel = derf2(randomAccel.xy) + (randomVals.x  * derf2(randomAccel.zw));
-        float resetSpeed = derf2(randomSpeed.xy) + (randomVals.x  * derf2(randomSpeed.zw));
-
         vec4 updateColor = vec4(accelSpeed.xy, serf2(speed + (accel * delta)));
-        vec4 resetColor = vec4(serf2(resetAccel), serf2(resetSpeed));
+
+        float resetAccel = derfThenCalcRange4(randomVals.x, randomAccel);
+        float resetSpeed = derfThenCalcRange4(randomVals.y, randomSpeed);
+        vec4 resetColor =  vec4(serf2(resetAccel).xy, serf2(resetSpeed).xy);
 
         writeColor(updateColor, resetColor);
     }
@@ -169,22 +201,121 @@ const dataFrag_growthAlphaCalc = `
         */
         
         vec4 growthAlphaColor = getDataColor(v_growthAlphaCoord);
-
         vec4 randomVals = getRandomVals();
-
-        float growth = derf2(growthAlphaColor.xy) + (derf2(accelSpeedColor.xy) * delta);
 
         /*
         * Alpha will need to be updated in colorCalc
         */
 
+        float growth = derf2(growthAlphaColor.xy) + (derf2(accelSpeedColor.xy) * delta);
         vec4 updateColor = vec4(serf2(growth).xy, growAlphaColor.zw);
-        vec4 resetColor = vec4(
-                serf2(
-                    randomGrowthWidth.x + (randomVals.x * randomGrowthWidth.y)
-                ).xy,
-                serf(randomAlphaSpeed.x + (randomVals.))
-        );
+        
+        // growth(rg); randomGrowthWidth(x, t)
+
+        float resetGrowth = derfThenCalcRange2(randomVals.x, randomGrowth.xy);
+        float alphaSpeed =  derfThenCalcRange2(randomVals.y, randomAlphaSpeedMax.xy);
+        float alphaMax =    derfThenCalcRange2(randomVals.z, randomAlphaSpeedMax.zw);
+        alpha
+
+        vec4 resetColor(serf2(resetGrowt).xy, serf(alphaSpeed), serf(alphaMax));
+
+        writeColor(updateColor, resetColor);
+    }
+`;
+
+const dataFrag_positionCalc = `
+
+    ${commonFrag_vars}
+    ${commonFrag_functions}
+
+    /*
+    * POSITION DATA MUST USE READPIXELS IN JS TO ASSIGN VERTECES
+    * AS DOES ROTATION DATA
+    */
+
+    void main() {
+
+        /*
+        * color3: (from(rg), length(ba))
+        *
+        * this.from += (this.speed * dt) + (this.growth*dt);
+        * this.length += this.growth * dt;
+        */
+        vec4 randomVals = getRandomVals();
+
+        vec4 accelSpeedColor  = getDataColor(v_accelSpeedCoord);
+        vec4 growthAlphaColor = getDataColor(v_growthAlphaCoord);
+        float speed  = derf2(accelSpeedColor.zw);
+        float growth = derf2(growthAlphaColor.xy);
+
+        vec2 position = derf4(getDataColor(v_positionCoord));
+        position.x += (speed*delta) + (growth*delta);
+        position.y += growth*delta;
+
+        vec4 updateColor = serf4(position);
+
+        vec2 resetFrom   = derfThenCalcRange2(randomVals.x, randomPosition.xy);
+        vec2 resetLength = derfThenCalcRange2(randomVals.y, randomPosition.zw);
+        vec4 resetColor  = vec4(serf2(resetFrom).xy, serf2(resetLength).xy);
+
+        writeColor(updateColor, resetColor);
+`;
+
+const dataFrag_rotationWidthCalc = `
+
+    ${commonFrag_vars}
+    ${commonFrag_functions}
+
+    void main() {
+
+        /*
+        * color4  rotationWidth ( x(r*g), y(b), width), //x(0-tau), y(0-tau), width(0-max))
+        *
+        * no update, just reset
+        */
+        vec4 updateColor = getDataColor(v_rotationWidthCoord);
+        vec4 randomVals = getRandomVals();
+
+        float randomDirX = derfThenCalcRange2(randomVals.x, randomDir.xy);
+        float randomDirY = derfThenCalcRange2(randomVals.y, randomDir.zw);
+
+        float randomWidth = derfThenCalcRange2(randomVals.z, randomGrowthWidth.zw);
+        randomWidth = rescaleTo(widthScale)
+
+        vec4 resetColor = vec4(serf2(randomDirX).xy, serf(randomDirY), serf(randomWidth));
+
+        writeColor(updateColor, resetColor);
+    }
+`;
+
+const dataFrag_colorCalc = `
+
+    ${commonFrag_vars}
+    ${commonFrag_functions}
+
+    void main() {
+
+        /*
+        * color5  colorHLSA
+        *
+        * update alpha, apply color
+        * 
+        */
+
+        vec4 updateColor = getDataColor(v_colorCoord);
+        vec4 growthAlpha = getDataColor(v_growthAlpha);
+        vec4 randomVals = getRandomVals();
+
+        float alphaSpeed = rescaleTo(derf(growthAlpha.z), alphaScale);
+        float alphaMax   = rescaleTo(derf(growthAlpha.w), alphaScale);
+
+        updateColor.a += (color.a + alphaSpeed * delta) * (1-floor(color.a/alphaMax));
+        
+        float resetH = derfThenCalcRange2(randomVals.x, randomColorHS.xy);
+        float resetS = derfThenCalcRange2(randomVals.y, randomColorHS.zw);
+        float resetV = derfThenCalcRange2(randomVals.z, randomColorVA.xy);
+        float resetA = rescaleTo(derfThenCalcRange2(randomVals.w, randomColorVA.zw), alphaScale);
+        vec4 resetColor = vec4(hsv2rgb(resetH, resetS, resetV).xyz, resetA);
 
         writeColor(updateColor, resetColor);
     }
